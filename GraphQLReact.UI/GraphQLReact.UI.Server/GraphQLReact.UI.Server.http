@@ -1,0 +1,6 @@
+@GraphQLReact.UI.Server_HostAddress = http://localhost:5263
+
+GET {{GraphQLReact.UI.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
