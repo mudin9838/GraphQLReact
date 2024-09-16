@@ -1,98 +1,111 @@
-import { useMemo } from "react";
-import { Box, Button, Tooltip, IconButton } from "@mui/material";
-import {
-  MaterialReactTable,
-  useMaterialReactTable,
-} from "material-react-table";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import { useGetProducts } from "../hooks/useGetProducts";
-import { useDeleteProduct } from "../hooks/useDeleteProduct";
-import { useUpdateProduct } from "../hooks/useUpdateProduct";
+// src/components/ProductList.tsx
 
+import React, { useState, useEffect } from 'react';
+import { Container, Row, Col, Table, Alert, Button, Spinner } from 'react-bootstrap';
+import { Product } from '../types/types';
+import { fetchProducts, deleteProduct } from '../services/ProductService';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
-const ProductList = () => {
-  const { data: products = [], isLoading, isError } = useGetProducts();
-  const { mutateAsync: deleteProduct } = useDeleteProduct();
-  const { mutateAsync: updateProduct } = useUpdateProduct();
+const ProductList: React.FC = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const { roles } = useAuth();
+  const token = localStorage.getItem('token') || '';
+  const navigate = useNavigate();
 
-  const columns = useMemo(
-    () => [
-      {
-        accessorKey: "id",
-        header: "ID",
-        size: 80,
-      },
-      {
-        accessorKey: "title",
-        header: "Title",
-      },
-      {
-        accessorKey: "description",
-        header: "Description",
-      },
-      {
-        accessorKey: "price",
-        header: "Price",
-      },
-      {
-        accessorKey: "imageUrl",
-        header: "Image URL",
-      },
-      {
-        accessorKey: "category.title",
-        header: "Category",
-      },
-    ],
-    []
-  );
+  // Fetch products when roles or token change
+    // Debugging statements
+    useEffect(() => {
+      console.log('Current roles:', roles);
+      console.log('Current token:', token);
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await fetchProducts(roles, token);
+        console.log('Fetched products:', data);
+        setProducts(data);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        if (error.message.includes('Access denied')) {
+          navigate('/unauthorized'); // Redirect to unauthorized page
+        } else {
+          setError(error.message || 'An error occurred while fetching products.');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      await deleteProduct(id);
+    fetchData();
+  }, [roles, token, navigate]);
+
+  // Handle product deletion
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteProduct(id, roles, token);
+      setProducts(prevProducts => prevProducts.filter(product => product.id !== id));
+    } catch (error) {
+      setError(error.message || 'An error occurred while deleting the product.');
     }
   };
 
-  const handleSaveProduct = async (values: any) => {
-    await updateProduct(values);
-  };
+  // Display loading spinner, error message, or product table
+  if (isLoading) {
+    return (
+      <Container className="text-center" style={{ height: '100vh' }} fluid>
+        <Spinner animation="border" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </Spinner>
+      </Container>
+    );
+  }
 
-  const table = useMaterialReactTable({
-    columns,
-    data: products,
-    enableEditing: true,
-    onEditingRowSave: handleSaveProduct,
-    renderRowActions: ({ row }) => (
-      <Box sx={{ display: "flex", gap: "1rem" }}>
-        <Tooltip title="Edit">
-          <IconButton onClick={() => table.setEditingRow(row)}>
-            <EditIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Delete">
-          <IconButton
-            color="error"
-            onClick={() => handleDeleteProduct(row.original.id)}
-          >
-            <DeleteIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
-    ),
-    renderTopToolbarCustomActions: ({ table }) => (
-      <Button variant="contained" onClick={() => table.setCreatingRow(true)}>
-        Create New Product
-      </Button>
-    ),
-    state: {
-      isLoading,
-      isSaving: false,
-      showAlertBanner: isError,
-      showProgressBars: false,
-    },
-  });
-
-  return <MaterialReactTable table={table} />;
+  return (
+    <Container fluid className="p-3">
+      {error && <Alert variant="danger">{error}</Alert>}
+      <Row>
+        <Col>
+          <Table striped bordered hover>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Description</th>
+                <th>Price</th>
+                <th>Image URL</th>
+                <th>Category</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map(product => (
+                <tr key={product.id}>
+                  <td>{product.id}</td>
+                  <td>{product.title}</td>
+                  <td>{product.description}</td>
+                  <td>{product.price}</td>
+                  <td>{product.imageUrl}</td>
+                  <td>{product.category?.title}</td>
+                  <td>
+                    <Button
+                      variant="danger"
+                      onClick={() => handleDelete(product.id)}
+                      disabled={isLoading} // Disable button while loading
+                    >
+                      Delete
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Col>
+      </Row>
+    </Container>
+  );
 };
 
 export default ProductList;

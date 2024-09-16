@@ -1,11 +1,13 @@
 ﻿
 using GraphQLReact.DLL.Entities;
 using GraphQLReact.DLL.Configuration;
-using Microsoft.EntityFrameworkCore; // Ensure this namespace is correct
+using Microsoft.EntityFrameworkCore;
+using AuthPlus.Identity.Entities;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore; // Ensure this namespace is correct
 
 namespace GraphQLReact.DLL.Data;
 
-public class ProductDbContext : DbContext
+public class ProductDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, string>
 {
     public ProductDbContext()
     {
@@ -19,6 +21,8 @@ public class ProductDbContext : DbContext
     // Define DbSets for entities
     public DbSet<Product> Products { get; set; }
     public DbSet<Category> Categories { get; set; }
+    public DbSet<UserProduct> UserProducts { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     { optionsBuilder.UseNpgsql(@"Host=localhost;Database=ShoppingCart;Username=postgres;Password=root"); }
     // Configure model relationships and apply configurations
@@ -27,6 +31,7 @@ public class ProductDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfiguration(new ProductConfiguration());
-        modelBuilder.ApplyConfiguration(new CategoryConfiguration()); // Assuming you have this
+        modelBuilder.ApplyConfiguration(new CategoryConfiguration());
+        modelBuilder.ApplyConfiguration(new UserProductConfiguration());
     }
 }
